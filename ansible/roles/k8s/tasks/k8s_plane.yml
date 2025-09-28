@@ -1,0 +1,140 @@
+- name: Install k8s plane
+  block:
+    - name: Install packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        install_recommends: false
+      register: apt_action
+      retries: 120
+      delay: 1
+      until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+      loop:
+        - "curl"
+        - "dnsutils"
+
+    - name: Create dirs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: 0755
+      loop:
+        - /etc/etcd
+        - /etc/etcd/kubernetes
+        - /etc/kubernetes/config
+        - /var/lib/kubernetes
+        - /var/lib/etcd
+        - /var/run/kubernetes
+
+    - name: Chmod etcd
+      ansible.builtin.file:
+        path: /var/lib/etcd
+        state: directory
+        mode: 0700
+
+    - name: Install crt/key files
+      ansible.builtin.copy:
+        dest: "{{ item.dest }}"
+        src: "ca/{{ item.src }}"
+        mode: 0755
+      loop:
+        - { src: ca.crt , dest: /var/lib/kubernetes/ca.crt }
+        - { src: ca.key , dest: /var/lib/kubernetes/ca.key }
+        - { src: kube-api-server.key , dest: /var/lib/kubernetes/kube-api-server.key }
+        - { src: kube-api-server.crt , dest: /var/lib/kubernetes/kube-api-server.crt }
+        - { src: service-accounts.key , dest: /var/lib/kubernetes/service-accounts.key }
+        - { src: service-accounts.crt , dest: /var/lib/kubernetes/service-accounts.crt }
+        # Aggregation layer certificates
+        - { src: proxy-ca.crt , dest: /var/lib/kubernetes/proxy-ca.crt }
+        - { src: proxy-client.key , dest: /var/lib/kubernetes/proxy-client.key }
+        - { src: proxy-client.crt , dest: /var/lib/kubernetes/proxy-client.crt }
+        - { src: requestheader-ca.key , dest: /var/lib/kubernetes/requestheader-ca.key }
+        - { src: requestheader-ca.crt , dest: /var/lib/kubernetes/requestheader-ca.crt }
+        # For Etcd
+        - { src: ca.crt , dest: /etc/etcd/kubernetes/ca.crt }
+        - { src: kube-api-server.key , dest: /etc/etcd/kubernetes/kube-api-server.key }
+        - { src: kube-api-server.crt , dest: /etc/etcd/kubernetes/kube-api-server.crt }
+
+    - name: Install plane binaries in /usr/local/bin
+      ansible.builtin.copy:
+        dest: /usr/local/bin/
+        src: "files/{{ item }}"
+        mode: 0755
+      loop:
+        - controller/kube-apiserver
+        - controller/kube-controller-manager
+        - controller/kube-scheduler
+        # Client
+        - client/kubectl
+        # For Etcd
+        - controller/etcd
+        - client/etcdctl
+
+    - name: Configuration files
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: /etc/kubernetes/config/
+      loop:
+        - configs/kube-scheduler.yaml
+        - configs/kube-apiserver-to-kubelet.yaml
+        - kubeconfigs/admin.kubeconfig
+
+    - name: Kubeconfig files
+      ansible.builtin.copy:
+        src: kubeconfigs/{{ item }}
+        dest: /var/lib/kubernetes
+      loop:
+        - kube-controller-manager.kubeconfig
+        - kube-scheduler.kubeconfig
+
+    - block:
+      - name: Get random
+        ansible.builtin.shell:
+          cmd: "head -c 32 /dev/urandom | base64"
+        register: urandom
+        delegate_to: localhost
+
+      - name: Setup Encryption
+        vars:
+          random_data: "{{urandom.stdout}}"
+        ansible.builtin.template:
+          src: configs/encryption-config.yaml.tmpl
+          dest: /var/lib/kubernetes/encryption-config.yaml
+          force: no # Don't update this if it exists
+
+    - name: "Configure service"
+      ansible.builtin.copy:
+        src: units/{{ item }}
+        dest: /etc/systemd/system/
+      loop:
+        - etcd.service
+        - kube-apiserver.service
+        - kube-controller-manager.service
+        - kube-scheduler.service
+
+    - name: "Ensure Service"
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - etcd.service
+        - kube-apiserver.service
+        - kube-controller-manager.service
+        - kube-scheduler.service
+
+    - name: "RBAC for Kubelet Authorisation"
+      ansible.builtin.command:
+        cmd: '
+          kubectl apply -f /etc/kubernetes/config/kube-apiserver-to-kubelet.yaml
+          --kubeconfig  /etc/kubernetes/config/admin.kubeconfig
+          '
+
+    - name: Allow routing for MetalLB traffic
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/metal_lb_fwd.conf
+        content: |
+          net.ipv4.ip_forward=1
+    - name: Load /etc/sysctl.d/metal_lb_fwd.conf
+      ansible.builtin.command:
+        cmd: sysctl -p /etc/sysctl.d/metal_lb_fwd.conf

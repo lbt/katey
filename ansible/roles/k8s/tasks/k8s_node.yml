@@ -1,0 +1,150 @@
+- name: Install k8s node
+  block:
+    - name: Install packages
+      apt:
+        name: "{{ item }}"
+        state: present
+        install_recommends: false
+      register: apt_action
+      retries: 120
+      delay: 1
+      until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+      loop:
+        - "socat"
+        - "conntrack"
+        - "ipset"
+        - "kmod"
+        - "nftables"
+        - "iptables"
+        - "lvm2"
+
+    - name: Disable swap in fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        state: absent
+        regexp: ' swap '
+    - name: Disable swapon
+      ansible.builtin.command:
+       cmd: "/usr/sbin/swapoff -a"
+
+    - name: Create dirs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: 0755
+      loop:
+        - "/etc/cni/net.d"
+        - "/etc/containerd/"
+        - "/opt/cni/bin"
+        - "/var/lib/kubelet"
+        - "/var/lib/kube-proxy"
+        - "/var/lib/kubernetes"
+        - "/var/run/kubernetes"
+
+    - name: Install crt/key and ca
+      ansible.builtin.copy:
+        dest: "/var/lib/{{ item.dest }}"
+        src: "{{ item.src }}"
+        mode: 0755
+      loop:
+        - { src: ca/ca.crt , dest: kubelet/ca.crt }
+        - { src: "ca/{{inventory_hostname}}.crt", dest: kubelet/kubelet.crt }
+        - { src: "ca/{{inventory_hostname}}.key", dest: kubelet/kubelet.key }
+        - { src: "kubeconfigs/kube-proxy.kubeconfig", dest: kube-proxy/kubeconfig }
+        - { src: "kubeconfigs/{{inventory_hostname}}.kubeconfig", dest: kubelet/kubeconfig }
+
+    - name: Install worker binaries /usr/local/bin
+      ansible.builtin.copy:
+        dest: /usr/local/bin/
+        src: "files/{{ item }}"
+        mode: 0755
+      loop:
+        - worker/crictl
+        - worker/kube-proxy
+        - worker/kubelet
+        - worker/runc
+    - name: Install worker binaries /bin
+      ansible.builtin.copy:
+        dest: /bin/
+        src: "files/{{ item }}"
+        mode: 0755
+      loop:
+        - worker/containerd
+        - worker/containerd-shim-runc-v2
+        - worker/containerd-stress
+    - name: Install worker binaries /opt/cni/bin
+      ansible.builtin.copy:
+        dest: /opt/cni/bin/
+        src: cni-plugins/
+        mode: 0755
+
+    - name: CNI config
+      ansible.builtin.template:
+        src: "configs/{{ item }}"
+        dest: /etc/cni/net.d/
+        owner: root
+        group: root
+        mode: '0644'
+      loop:
+        - 10-bridge.conf
+        - 99-loopback.conf
+
+    - name: Load netfilter module
+      ansible.builtin.command:
+        cmd: modprobe br-netfilter nf_conntrack
+    - name: Load netfilter module at startup
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/k8smodules
+        content: |
+          br-netfilter
+          nf_conntrack
+    - name: Prepare sysctl.d/kubernetes.conf
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/kubernetes.conf
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+    - name: Load sysctl.d/kubernetes.conf
+      ansible.builtin.command:
+        cmd: sysctl -p /etc/sysctl.d/kubernetes.conf
+
+    - name: Configure containerd
+      ansible.builtin.copy:
+        src: configs/containerd-config.toml
+        dest: /etc/containerd/config.toml
+    - name: Configure kubelet
+      ansible.builtin.copy:
+        src: configs/kubelet-config.yaml
+        dest: /var/lib/kubelet/
+    - name: Configure proxy
+      ansible.builtin.copy:
+        src: configs/kube-proxy-config.yaml
+        dest: /var/lib/kube-proxy/
+
+    - name: "Configure service"
+      ansible.builtin.copy:
+        src: units/{{ item }}
+        dest: /etc/systemd/system/
+      loop:
+        - containerd.service
+        - kubelet.service
+        - kube-proxy.service
+
+    - name: "Ensure Service"
+      ansible.builtin.service:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop:
+        - containerd.service
+        - kubelet.service
+        - kube-proxy.service
+
+    - name: Taint the node if it's a k8s_plane
+      ansible.builtin.command:
+        cmd: '
+        kubectl taint node {{ inventory_hostname }}
+        node-role.kubernetes.io/control-plane:NoSchedule
+        --overwrite
+        --kubeconfig /etc/kubernetes/config/admin.kubeconfig'
+      when: k8s_plane is defined and k8s_plane == true

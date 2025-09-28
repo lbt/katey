@@ -1,0 +1,35 @@
+VM DNS entries
+
+k8n0			A	10.0.0.200
+k8n0-vlan0		A	10.0.0.200
+k8n1			A	10.0.0.201
+k8n1-vlan0		A	10.0.0.201
+k8n2			A	10.0.0.202
+k8n2-vlan0		A	10.0.0.202
+k8n3			A	10.0.0.203
+k8n3-vlan0		A	10.0.0.203
+k8nm			A	10.0.0.210
+k8nm-vlan0		A	10.0.0.210
+kubernetes              CNANE   k8nm ; for api-server
+server                  CNANE   k8nm
+node-0			CNAME	k8n0
+node-1			CNAME	k8n1
+node-2			CNAME	k8n2
+node-3			CNAME	k8n3
+
+All nodes have:
+4Gb RAM
+4CPU
+
+/dev/vda        5.9G  1.2G  4.4G  21% /
+/dev/vdb        3.9G  2.8G  913M  76% /var
+
+LVM2
+  PV         VG          Fmt  Attr PSize   PFree
+  /dev/vdc   k8s-storage lvm2 a--  <20.00g <20.00g
+
+The underlying host has 128Gb RAM and 24 cores
+
+  /dev/md1       virt  lvm2 a--   <1.82t  18.94g
+  /dev/md2       fast  lvm2 a--  465.63g  89.63g
+  /dev/nvme0n1p1 fast2 lvm2 a--   <1.82t 617.01g

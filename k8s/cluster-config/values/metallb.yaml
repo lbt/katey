@@ -1,0 +1,9 @@
+# Purpose: Pins specific image versions for consistent deployments. In
+# production, you'd add resource limits and node selectors here.
+controller:
+  image:
+    tag: v0.15.2
+
+speaker:
+  image:
+    tag: v0.15.2

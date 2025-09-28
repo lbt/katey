@@ -1,0 +1,28 @@
+# Purpose: Configures TopoLVM to use embedded LVM daemon and creates a
+# default storage class that supports volume
+# expansion. WaitForFirstConsumer ensures volumes are created on the
+# same node as the pod.
+image:
+  tag: 0.37.0
+
+controller:
+  replicaCount: 1
+
+node:
+  lvmdEmbedded: true
+
+# Specify available storage classes
+storageClasses:
+  - name: topolvm-storage
+    storageClass:
+      fsType: ext4
+      volumeBindingMode: WaitForFirstConsumer
+      allowVolumeExpansion: true
+    default: true
+
+lvmd:
+  deviceClasses:
+    - default: true
+      name: "ssd"
+      spare-gb: 1
+      volume-group: "k8s-storage"

@@ -1,0 +1,36 @@
+# Purpose: Defines which Helm charts to install, their versions, and
+# applies custom manifests after deployment. The hook ensures our
+# configuration files are applied after the operators are installed.
+repositories:
+  - name: jetstack
+    url: https://charts.jetstack.io
+  - name: metallb
+    url: https://metallb.github.io/metallb
+
+releases:
+  - name: cert-manager
+    namespace: cert-manager
+    chart: jetstack/cert-manager
+    version: ~1.17.4
+    createNamespace: true
+    values:
+      - ./values/cert-manager.yaml
+    # Install CRDs automatically
+    set:
+      - name: crds.enabled
+        value: true
+
+  - name: metallb
+    namespace: metallb-system
+    chart: metallb/metallb
+    version: ~0.15.2
+    createNamespace: true
+    values:
+      - ./values/metallb.yaml
+
+hooks:
+  - events: ["postapply"]
+    showlogs: true
+    command: "kubectl"
+    args: ["apply", "-f", "manifests/"]
+

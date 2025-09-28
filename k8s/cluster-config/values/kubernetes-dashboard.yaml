@@ -1,0 +1,10 @@
+# Kong gateway - this is the main entry point
+kong:
+  enabled: true
+  proxy:
+    type: LoadBalancer
+    loadBalancerIP: 10.1.0.110
+    annotations:
+      metallb.universe.tf/address-pool: k8s-services-pool
+    http:
+      enabled: false

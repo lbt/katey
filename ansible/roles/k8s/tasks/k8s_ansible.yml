@@ -1,0 +1,219 @@
+- name: Create k8s ansible assets
+  vars:
+    domain: dgreaves.com
+    api_hostname: 10.0.0.210
+#    api_hostname: kubernetes.dgreaves.com # This fails in CoreDNS
+    api_ip: 10.0.0.210
+  block:
+    - name: Create CA config
+      ansible.builtin.template:
+        src: configs/ca.conf.tmpl
+        dest: "{{ role_path }}/ca/ca.conf"
+        mode: '0644'
+      vars:
+        domain: dgreaves.com
+        api_ip: 10.0.0.210
+        # We run with -l localhost so maybe the facts from the other
+        # nodes won't be obtained
+        # node_ips: "{{ groups['k8snode'] | map('extract', hostvars, 'ansible_default_ipv4') | map(attribute='address') | list }}"
+        # nodes_with_ips: "{{ groups['k8snode'] | zip(node_ips) | list }}"
+        nodes_with_ips:
+          - ['k8n0.dgreaves.com', '10.0.0.200']
+          - ['k8n1.dgreaves.com', '10.0.0.201']
+          - ['k8n2.dgreaves.com', '10.0.0.202']
+          - ['k8n3.dgreaves.com', '10.0.0.203']
+          - ['k8nm.dgreaves.com', '10.0.0.210']
+    - name: Create CA
+      ansible.builtin.shell:
+        chdir: "{{ role_path }}/ca/"
+        cmd: '
+          openssl genrsa -out ca.key 4096
+          ;
+          openssl req -x509 -new -sha512 -noenc
+          -key ca.key -days 3653
+          -config ca.conf
+          -out ca.crt
+          '
+        creates: ca.crt
+
+    - name: Create Node ca/key files
+      ansible.builtin.shell:
+        chdir: "{{ role_path }}/ca/"
+        cmd: '
+          openssl genrsa -out "{{ cert }}.key" 4096
+          ;
+          openssl req -new -key "{{ cert }}.key" -sha256
+          -config "ca.conf" -section {{ cert }}
+          -out "{{ cert }}.csr"
+          ;
+          openssl x509 -req -days 3653 -in "{{ cert }}.csr"
+          -copy_extensions copyall
+          -sha256 -CA "ca.crt"
+          -CAkey "ca.key"
+          -CAcreateserial
+          -out "{{ cert }}.crt"
+          '
+        creates: "{{ cert }}.crt"
+      vars:
+        certs :
+          - "{{ groups['k8snode'] }}"
+          - admin
+          - kube-proxy
+          - kube-scheduler
+          - kube-controller-manager
+          - kube-api-server
+          - service-accounts
+          - requestheader-ca
+      loop: "{{ certs | flatten }}"
+      loop_control:
+        loop_var: cert
+
+    - name: Create proxy CA (self-signed)
+      ansible.builtin.shell:
+        chdir: "{{ role_path }}/ca/"
+        cmd: '
+          openssl genrsa -out proxy-ca.key 4096
+          ;
+          openssl req -x509 -new -sha512 -noenc
+          -key proxy-ca.key -days 3653
+          -subj "/CN=kubernetes-proxy-ca"
+          -out proxy-ca.crt
+          '
+        creates: proxy-ca.crt
+
+    - name: Create proxy-client cert (signed by proxy-ca this time)
+      ansible.builtin.shell:
+        chdir: "{{ role_path }}/ca/"
+        cmd: '
+          openssl genrsa -out "{{ cert }}.key" 4096
+          ;
+          openssl req -new -key "{{ cert }}.key" -sha256
+          -config "ca.conf" -section {{ cert }}
+          -out "{{ cert }}.csr"
+          ;
+          openssl x509 -req -days 3653 -in "{{ cert }}.csr"
+          -copy_extensions copyall
+          -sha256 -CA "proxy-ca.crt"
+          -CAkey "proxy-ca.key"
+          -CAcreateserial
+          -out "{{ cert }}.crt"
+          '
+        creates: "{{ cert }}.crt"
+      loop:
+          - proxy-client
+      loop_control:
+        loop_var: cert
+
+    - name: Create node kubeconfigs
+      ansible.builtin.shell:
+        chdir: "{{ role_path }}/kubeconfigs/"
+        cmd: '
+          kubectl config set-cluster kubernetes-the-hard-way
+          --certificate-authority=../ca/ca.crt
+          --embed-certs=true
+          --server=https://{{ api_hostname }}:6443
+          --kubeconfig={{ item }}.kubeconfig
+          ;
+          kubectl config set-credentials system:node:{{ item }}
+          --client-certificate=../ca/{{ item }}.crt
+          --client-key=../ca/{{ item }}.key
+          --embed-certs=true
+          --kubeconfig={{ item }}.kubeconfig
+          ;
+          kubectl config set-context default
+          --cluster=kubernetes-the-hard-way
+          --user=system:node:{{ item }}
+          --kubeconfig={{ item }}.kubeconfig
+          ;
+          kubectl config use-context default
+          --kubeconfig={{ item }}.kubeconfig'
+        creates: "{{ item }}.kubeconfig"
+      loop: "{{ groups['k8snode'] }}"
+
+    - name: Create service/user kubeconfigs
+      ansible.builtin.shell:
+        chdir: "{{ role_path }}/kubeconfigs/"
+        cmd: '
+          kubectl config set-cluster kubernetes-the-hard-way
+          --certificate-authority=../ca/ca.crt
+          --embed-certs=true
+          --server=https://{{ api_hostname }}:6443
+          --kubeconfig={{ item.name }}.kubeconfig
+          ;
+          kubectl config set-credentials {{ item.cred }}
+          --client-certificate=../ca/{{ item.name }}.crt
+          --client-key=../ca/{{ item.name }}.key
+          --embed-certs=true
+          --kubeconfig={{ item.name }}.kubeconfig
+          ;
+          kubectl config set-context default
+          --cluster=kubernetes-the-hard-way
+          --user={{ item.cred }}
+          --kubeconfig={{ item.name }}.kubeconfig
+          ;
+          kubectl config use-context default
+          --kubeconfig={{ item.name }}.kubeconfig'
+        creates: "{{ item.name }}.kubeconfig"
+      loop:
+        - { name: kube-proxy , cred: "system:kube-proxy" }
+        - { name: kube-controller-manager, cred: "system:kube-controller-manager" }
+        - { name: kube-scheduler, cred: "system:kube-scheduler" }
+        - { name: admin, cred: admin }
+
+    - name: "Create ansible /home/david/.kube/config"
+      ansible.builtin.shell:
+        chdir: "{{ role_path }}/kubeconfigs/"
+        cmd: '
+          kubectl config set-cluster kubernetes-the-hard-way
+          --certificate-authority=../ca/ca.crt
+          --embed-certs=true
+          --server=https://{{ api_hostname }}:6443
+          ;
+          kubectl config set-credentials {{ item.cred }}
+          --client-certificate=../ca/{{ item.name }}.crt
+          --client-key=../ca/{{ item.name }}.key
+          --embed-certs=true
+          ;
+          kubectl config set-context kubernetes-the-hard-way
+          --cluster=kubernetes-the-hard-way
+          --user={{ item.cred }}
+          ;
+          kubectl config use-context kubernetes-the-hard-way'
+        creates: "/home/david/.kube/config"
+      loop:
+        - { name: admin, cred: admin }
+
+    - name: Install helm and helm-diff
+      ansible.builtin.shell:
+        creates: /usr/local/bin/helm
+        cmd: '
+        cd /tmp ;
+
+        curl https://get.helm.sh/helm-v3.19.0-linux-amd64.tar.gz
+        -o helm.tar.gz
+        ;
+        tar -zxvf helm.tar.gz ;
+        sudo mv linux-amd64/helm /usr/local/bin/helm ;
+        rm -rf helm.tar.gz linux-amd64 ;
+        '
+      become: true
+    - name: "Install helm-diff for david only :/"
+      ansible.builtin.shell:
+        creates: /home/david/.local/share/helm/plugins/helm-diff
+        cmd: '
+        /usr/local/bin/helm plugin install https://github.com/databus23/helm-diff
+        '
+    - name: Install helmfile
+      ansible.builtin.shell:
+        creates: /usr/local/bin/helmfile
+        cmd: '
+        cd /tmp && rm -rf h && mkdir h && cd h &&
+        curl -fsSL -o helmfile.tar.gz
+        https://github.com/helmfile/helmfile/releases/latest/download/helmfile_1.1.7_linux_amd64.tar.gz
+        ;
+        tar -xf helmfile.tar.gz ;
+        mv helmfile /usr/local/bin/ &&
+        chmod +x /usr/local/bin/helmfile &&
+        cd /tmp && rm -rf h
+        '
+      become: true

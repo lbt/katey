@@ -1,0 +1,16 @@
+    k8nm.dgreaves.com:
+      k8s_plane: true
+      k8s_node: true
+      k8s_node_subnet: 10.200.10.0/24
+    k8n0.dgreaves.com:
+      k8s_node: true
+      k8s_node_subnet: 10.200.0.0/24
+    k8n1.dgreaves.com:
+      k8s_node: true
+      k8s_node_subnet: 10.200.1.0/24
+    k8n2.dgreaves.com:
+      k8s_node: true
+      k8s_node_subnet: 10.200.2.0/24
+    k8n3.dgreaves.com:
+      k8s_node: true
+      k8s_node_subnet: 10.200.3.0/24

@@ -1,0 +1,26 @@
+# Purpose: Defines the Helm charts to install for the LVM and storage
+# functions, their versions, and applies custom manifests after
+# deployment. The hook ensures our configuration files are applied
+# after the operators are installed.
+repositories:
+  - name: topolvm
+    url: https://topolvm.github.io/topolvm
+
+releases:
+  - name: topolvm
+    namespace: topolvm-system
+    chart: topolvm/topolvm
+    version: ~15.6.0
+    createNamespace: true
+    values:
+      - ./values/topolvm.yaml
+    # Wait for cert-manager to be ready (but installed seperately to avoid CRD issues)
+    # needs:
+    #   - cert-manager/cert-manager
+
+hooks:
+  - events: ["postapply"]
+    showlogs: true
+    command: "kubectl"
+    args: ["apply", "-f", "manifests/"]
+

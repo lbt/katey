@@ -1,0 +1,43 @@
+# cluster-config/dashboard.h.yaml
+repositories:
+  - name: kubernetes-dashboard
+    url: https://kubernetes.github.io/dashboard/
+
+releases:
+  - name: kubernetes-dashboard
+    namespace: kubernetes-dashboard
+    chart: kubernetes-dashboard/kubernetes-dashboard
+    version: ~7.8.0  # Use latest 7.x version
+    createNamespace: true
+    values: # Set some chart values - in this case a loadbalancer IP for Kong
+      - ./values/kubernetes-dashboard.yaml
+    hooks: # We use a hook as this enforces a dependency to run after the sync
+      - events: ["postsync"] # hook to setup the user/clusterrole binding to
+                             # allow access to the UI
+        showlogs: true
+        command: "kubectl"
+        args: ["apply", "-f", "manifests/dashboard-admin.yaml"]
+      - events: ["postdelete"]
+        showlogs: true
+        command: "kubectl"
+        args: ["delete", "-f", "manifests/dashboard-admin.yaml", "--ignore-not-found=true"]
+
+
+# This file is used to deploy the kubernetes-dashboard
+# https://github.com/kubernetes/dashboard
+#g
+# See https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/
+#
+# Wipe it with:
+#
+# helmfile -f cluster-config/dashboard.h.yaml destroy \
+# && kubectl delete namespace kubernetes-dashboard
+#
+# Install with:
+#
+# helmfile -f cluster-config/dashboard.h.yaml apply [--debug]
+#
+# Access at: https://10.1.0.110
+#
+# Generate a login token using:
+# kubectl -n kubernetes-dashboard create token dashboard-user

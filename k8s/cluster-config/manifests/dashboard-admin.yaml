@@ -1,0 +1,100 @@
+# cluster-config/manifests/dashboard-admin.yaml
+#
+# This file creates an admin-user service account in the dashboard
+# namespace and then binds the ClusterRole called 'cluster-admin' to
+# it.  Presumably this role is pre-defined and has lots (if not all)
+# cluster rights which allows it to access the resources the dashboard
+# needs to read.
+#
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dashboard-user
+  namespace: kubernetes-dashboard
+  labels:
+    app.kubernetes.io/name: kubernetes-dashboard
+    app.kubernetes.io/instance: dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dashboard-readonly-user
+rules:
+  # Allow read-only access to most common resources
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["get", "list", "watch"]
+
+  # The explicit version follows. However this needs to be maintained
+  # # Core resources (apiGroup: "")
+  # - apiGroups: [""]
+  #   resources:
+  #     - "pods"
+  #     - "services"
+  #     - "configmaps"
+  #     - "secrets"
+  #     - "nodes"
+  #     - "namespaces"
+  #     - "persistentvolumes"
+  #     - "events"
+  #     - "persistentvolumeclaims"
+  #     - "serviceaccounts"
+  #     - "endpoints"
+  #   verbs: ["get", "list", "watch"]
+
+  # # Apps resources
+  # - apiGroups: ["apps"]
+  #   resources:
+  #     - "deployments"
+  #     - "replicasets"
+  #     - "statefulsets"
+  #     - "daemonsets"
+  #     - "replicationcontrollers"
+  #   verbs: ["get", "list", "watch"]
+
+  # # Batch resources
+  # - apiGroups: ["batch"]
+  #   resources:
+  #     - "jobs"
+  #     - "cronjobs"
+  #   verbs: ["get", "list", "watch"]
+
+  # # Networking resources
+  # - apiGroups: ["networking.k8s.io"]
+  #   resources: ["ingresses", "networkpolicies"]
+  #   verbs: ["get", "list", "watch"]
+
+  # # Storage resources
+  # - apiGroups: ["storage.k8s.io"]
+  #   resources: ["storageclasses", "volumeattachments"]
+  #   verbs: ["get", "list", "watch"]
+
+  # # Additional API groups that Dashboard might need
+  # - apiGroups: ["autoscaling"]
+  #   resources: ["horizontalpodautoscalers"]
+  #   verbs: ["get", "list", "watch"]
+
+  # - apiGroups: ["policy"]
+  #   resources: ["poddisruptionbudgets"]
+  #   verbs: ["get", "list", "watch"]
+
+  # - apiGroups: ["certificates.k8s.io"]
+  #   resources: ["certificatesigningrequests"]
+  #   verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dashboard-user-binding
+  labels:
+    app.kubernetes.io/name: kubernetes-dashboard
+    app.kubernetes.io/instance: dashboard
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dashboard-readonly-user
+subjects:
+- kind: ServiceAccount
+  name: dashboard-user
+  namespace: kubernetes-dashboard

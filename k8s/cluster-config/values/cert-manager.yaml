@@ -1,0 +1,6 @@
+# Basic cert-manager configuration
+replicaCount: 1
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
