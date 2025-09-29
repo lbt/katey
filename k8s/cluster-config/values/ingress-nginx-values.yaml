@@ -1,0 +1,23 @@
+# ingress-nginx-values.yaml
+controller:
+  service:
+    type: LoadBalancer
+    annotations:
+      # Optional: request specific IP from MetalLB
+      metallb.universe.tf/address-pool: public
+  # Enable SSL termination
+  extraArgs:
+    default-ssl-certificate: "cert-manager/wildcard-dgreaves-com"
+  config:
+    ssl-protocols: "TLSv1.2 TLSv1.3"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Enable metrics for Prometheus
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true

@@ -9,7 +9,7 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-  - 10.1.0.100-10.1.0.200
+  - 10.1.0.1-10.1.0.254
 ---
 # L2 Advertisement - tells MetalLB to use Layer 2 mode (ARP)
 apiVersion: metallb.io/v1beta1

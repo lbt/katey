@@ -1,0 +1,45 @@
+# values for external-dns.
+# For details see
+# https://github.com/kubernetes-sigs/external-dns/blob/master/charts/external-dns/values.yaml
+
+# -- Log level.
+logLevel: debug  # @schema enum:[panic, debug, info, warning, error, fatal]; type:string; default: "info"
+
+# -- Log format.
+logFormat: text  # @schema enum:["text", "json"]; type:string; default: "text"
+
+# -- Interval for DNS updates.
+interval: 30s
+
+# -- _Kubernetes_ resources to monitor for DNS entries.
+sources:
+  - service
+  - ingress
+
+# -- How DNS records are synchronized between sources and providers; available values are `create-only`, `sync`, & `upsert-only`.
+policy: upsert-only  # @schema enum:[create-only, sync, upsert-only]; type:string; default: "upsert-only"
+
+# Valid values are `txt`, `aws-sd`, `dynamodb` & `noop`.
+registry: txt  # @schema enum:[txt, aws-sd, dynamodb, noop]; default: "txt"
+# -- (string) Specify an identifier for this instance of _ExternalDNS_ when using a registry other than `noop`.
+txtOwnerId: katey-cluster # @schema type:[string, null]; default: null
+# -- (string) Specify a prefix for the domain names of TXT records created for the `txt` registry.
+# Mutually exclusive with `txtSuffix`.
+txtPrefix: ext-dns-katey- # @schema type:[string, null]; default: null
+
+# -- Limit possible target zones by domain suffixes.
+domainFilters: [dgreaves.com, 0.1.10.in-addr.arpa]
+
+provider:
+  name: rfc2136
+
+  # -- Extra arguments to provide to _ExternalDNS_.
+# An array or map can be used, with maps allowing for value overrides; maps also support slice values to use the same arg multiple times.
+extraArgs:
+    rfc2136-host: 10.0.0.7 # Your BIND server IP
+    rfc2136-port: 53
+    rfc2136-zone: dgreaves.com
+    rfc2136-tsig-secret: 7qbREmCZ8OLxLJN3wj96xNhVzRQBZ3VXGBV5fQ6HeiY=
+    rfc2136-tsig-secret-alg: hmac-sha256
+    rfc2136-tsig-keyname: k8s_key
+    rfc2136-tsig-axfr:

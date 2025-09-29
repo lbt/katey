@@ -1,0 +1,68 @@
+# Purpose: Defines which Helm charts to install, their versions, and
+# applies custom manifests after deployment. The hook ensures our
+# configuration files are applied after the operators are installed.
+repositories:
+  - name: jetstack
+    url: https://charts.jetstack.io
+  - name: metallb
+    url: https://metallb.github.io/metallb
+  - name: external-dns
+    url: https://kubernetes-sigs.github.io/external-dns/
+  - name: ingress-nginx
+    url: https://kubernetes.github.io/ingress-nginx
+
+releases:
+  - name: cert-manager
+    namespace: cert-manager
+    chart: jetstack/cert-manager
+    version: ~1.17.4
+    createNamespace: true
+    values:
+      - ./values/cert-manager.yaml
+    # Install CRDs automatically
+    set:
+      - name: crds.enabled
+        value: true
+
+  - name: external-dns
+    namespace: external-dns
+    chart: external-dns/external-dns
+    version: 1.19.0
+    createNamespace: true
+    values:
+      - ./values/external-dns.yaml
+
+  - name: metallb
+    namespace: metallb-system
+    chart: metallb/metallb
+    version: ~0.15.2
+    createNamespace: true
+    values:
+      - ./values/metallb.yaml
+    # This was not being done - not sure if it's needed
+    # hooks:
+    #   - events: ["postapply"]
+    #     showlogs: true
+    #     command: "kubectl"
+    #     args: ["apply", "-f", "manifests/metallb.yaml"]
+
+  - name: ingress-nginx-prepare
+    namespace: ingress-nginx
+    # This tells Helmfile this release is for raw manifests, not a Helm chart
+    chart: ./
+    installed: true
+    values:
+      - ./manifests/ingress-prepare.yaml.gotmpl
+
+  - name: ingress-nginx
+    # https://github.com/kubernetes/ingress-nginx
+    namespace: ingress-nginx
+    chart: ingress-nginx/ingress-nginx
+    version: ~4.13.0
+    needs:
+      - ingress-nginx/ingress-nginx-prepare
+    values:
+      - ./values/ingress-nginx-values.yaml
+    set:
+      - name: podAnnotations.checksum/config
+        value: {{ readFile "./values/ingress-nginx-values.yaml" | sha256sum }}
