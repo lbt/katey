@@ -46,13 +46,17 @@ releases:
     #     command: "kubectl"
     #     args: ["apply", "-f", "manifests/metallb.yaml"]
 
+  # This uses a minimal local chart
   - name: ingress-nginx-prepare
     namespace: ingress-nginx
-    # This tells Helmfile this release is for raw manifests, not a Helm chart
-    chart: ./
+    chart: ./charts/ingress-nginx-prepare
     installed: true
     values:
-      - ./manifests/ingress-prepare.yaml.gotmpl
+      # These are parsed by helmfile gotmpl and passed into helm as .Values
+      - ./values/ingress-nginx-prepare-values.yaml.gotmpl
+    set:
+      - name: podAnnotations.checksum/config
+        value: {{ readFile "./charts/ingress-nginx-prepare/templates/ingress-prepare.yaml.gotmpl" | sha256sum }}
 
   - name: ingress-nginx
     # https://github.com/kubernetes/ingress-nginx

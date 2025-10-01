@@ -1,0 +1,5 @@
+# This gotmpl file is parsed by helmfile
+certname: wildcard-dgreaves-com
+tlsCrt: {{ readFile "/everything/devel/letsencrypt/etc/live/dgreaves.com-0001/fullchain.pem.b64" | quote }}
+tlsKey: {{ readFile "/everything/devel/letsencrypt/etc/live/dgreaves.com-0001/privkey.pem.b64" | quote }}
+renewedAt: {{ readFile "/everything/devel/letsencrypt/etc/live/dgreaves.com-0001/renewed_at" | trim | quote }}

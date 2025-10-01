@@ -1,0 +1,15 @@
+# letsencrypt-clusterissuer.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.certname }}-secret
+  namespace: ingress-nginx
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ .Values.tlsCrt }}
+  tls.key: {{ .Values.tlsKey }}

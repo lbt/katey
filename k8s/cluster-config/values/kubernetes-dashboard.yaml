@@ -6,5 +6,6 @@ kong:
     loadBalancerIP: 10.1.0.110
     annotations:
       metallb.universe.tf/address-pool: k8s-services-pool
+      external-dns.alpha.kubernetes.io/hostname: k8s-dashboard.dgreaves.com.
     http:
       enabled: false
