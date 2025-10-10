@@ -1,0 +1,16 @@
+- name: Debian add routes
+  ansible.builtin.command:
+    cmd: "/etc/network/routes add"
+  when: ansible_distribution == "Debian"
+  listen: "reload routes"
+
+- name: Node apply routes
+  ansible.builtin.command:
+    cmd: "netplan apply"
+  when: ansible_distribution == "Ubuntu"
+  listen: "reload routes"
+
+    # service:
+    #   name: apache
+    #   state: restarted
+    # listen: "restart web services"

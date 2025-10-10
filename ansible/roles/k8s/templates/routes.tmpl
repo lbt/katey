@@ -1,0 +1,10 @@
+#!/bin/bash
+if [[ $1 != "add" ]] && [[ $1 != "del" ]]; then
+    echo Must provide add or del arg
+    exit 1
+fi
+
+{% for n in nodes -%}
+# via n.inventory_hostname
+ip route $1 {{ n.k8s_node_subnet }} via {{ lookup('dig', n.inventory_hostname) }}
+{% endfor -%}

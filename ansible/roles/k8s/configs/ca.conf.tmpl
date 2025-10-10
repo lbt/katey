@@ -4,13 +4,13 @@ prompt             = no
 x509_extensions    = ca_x509_extensions
 
 [ca_x509_extensions]
-basicConstraints = CA:TRUE
-keyUsage         = cRLSign, keyCertSign
+basicConstraints = critical, CA:TRUE
+keyUsage         = critical, cRLSign, keyCertSign
 
 [req_distinguished_name]
-C   = US
-ST  = Washington
-L   = Seattle
+C   = UK
+ST  = Berkshire
+L   = Tutts Clump
 CN  = CA
 
 [admin]
@@ -46,7 +46,7 @@ CN = service-accounts
 # that identifies them as being in the `system:nodes` group, with a username
 # of `system:node:<nodeName>`.
 
-{% for node, node_ip in nodes_with_ips -%}
+{% for node in nodes -%}
 [{{ node }}]
 distinguished_name = {{ node }}_distinguished_name
 prompt             = no
@@ -58,15 +58,15 @@ extendedKeyUsage     = clientAuth, serverAuth
 keyUsage             = critical, digitalSignature, keyEncipherment
 nsCertType           = client
 nsComment            = "{{ node }} Certificate"
-subjectAltName       = DNS:{{ node }}, IP: {{ node_ip }}
+subjectAltName       = DNS:{{ node }}, IP: {{ lookup('dig', node) }}
 subjectKeyIdentifier = hash
 
 [{{ node }}_distinguished_name]
 CN = system:node:{{ node }}
 O  = system:nodes
-C  = US
-ST = Washington
-L  = Seattle
+C  = UK
+ST = Berkshire
+L  = Tutts Clump
 
 {% endfor -%}
 
@@ -88,9 +88,9 @@ subjectKeyIdentifier = hash
 [kube-proxy_distinguished_name]
 CN = system:kube-proxy
 O  = system:node-proxier
-C  = US
-ST = Washington
-L  = Seattle
+C  = UK
+ST = Berkshire
+L  = Tutts Clump
 
 
 # Controller Manager
@@ -111,9 +111,9 @@ subjectKeyIdentifier = hash
 [kube-controller-manager_distinguished_name]
 CN = system:kube-controller-manager
 O  = system:kube-controller-manager
-C  = US
-ST = Washington
-L  = Seattle
+C  = UK
+ST = Berkshire
+L  = Tutts Clump
 
 
 # Scheduler
@@ -134,9 +134,9 @@ subjectKeyIdentifier = hash
 [kube-scheduler_distinguished_name]
 CN = system:kube-scheduler
 O  = system:system:kube-scheduler
-C  = US
-ST = Washington
-L  = Seattle
+C  = UK
+ST = Berkshire
+L  = Tutts Clump
 
 
 # API Server
@@ -175,9 +175,9 @@ DNS.7 = kubernetes.{{ domain }}
 
 [kube-api-server_distinguished_name]
 CN = kubernetes
-C  = US
-ST = Washington
-L  = Seattle
+C  = UK
+ST = Berkshire
+L  = Tutts Clump
 
 
 [default_req_extensions]

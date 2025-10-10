@@ -1,32 +1,18 @@
 - name: Create k8s ansible assets
   vars:
-    domain: dgreaves.com
-    api_hostname: 10.0.0.210
-#    api_hostname: kubernetes.dgreaves.com # This fails in CoreDNS
-    api_ip: 10.0.0.210
+    api_ip: "{{ lookup('dig', api_hostname) }}"
+    nodes: "{{ groups['k8snode'] }}"
   block:
     - name: Create CA config
       ansible.builtin.template:
         src: configs/ca.conf.tmpl
         dest: "{{ role_path }}/ca/ca.conf"
         mode: '0644'
-      vars:
-        domain: dgreaves.com
-        api_ip: 10.0.0.210
-        # We run with -l localhost so maybe the facts from the other
-        # nodes won't be obtained
-        # node_ips: "{{ groups['k8snode'] | map('extract', hostvars, 'ansible_default_ipv4') | map(attribute='address') | list }}"
-        # nodes_with_ips: "{{ groups['k8snode'] | zip(node_ips) | list }}"
-        nodes_with_ips:
-          - ['k8n0.dgreaves.com', '10.0.0.200']
-          - ['k8n1.dgreaves.com', '10.0.0.201']
-          - ['k8n2.dgreaves.com', '10.0.0.202']
-          - ['k8n3.dgreaves.com', '10.0.0.203']
-          - ['k8nm.dgreaves.com', '10.0.0.210']
     - name: Create CA
       ansible.builtin.shell:
         chdir: "{{ role_path }}/ca/"
         cmd: '
+          failNOW;
           openssl genrsa -out ca.key 4096
           ;
           openssl req -x509 -new -sha512 -noenc
@@ -108,7 +94,7 @@
       ansible.builtin.shell:
         chdir: "{{ role_path }}/kubeconfigs/"
         cmd: '
-          kubectl config set-cluster kubernetes-the-hard-way
+          kubectl config set-cluster {{ cluster_name }}
           --certificate-authority=../ca/ca.crt
           --embed-certs=true
           --server=https://{{ api_hostname }}:6443
@@ -121,7 +107,7 @@
           --kubeconfig={{ item }}.kubeconfig
           ;
           kubectl config set-context default
-          --cluster=kubernetes-the-hard-way
+          --cluster={{ cluster_name }}
           --user=system:node:{{ item }}
           --kubeconfig={{ item }}.kubeconfig
           ;
@@ -134,7 +120,7 @@
       ansible.builtin.shell:
         chdir: "{{ role_path }}/kubeconfigs/"
         cmd: '
-          kubectl config set-cluster kubernetes-the-hard-way
+          kubectl config set-cluster {{ cluster_name }}
           --certificate-authority=../ca/ca.crt
           --embed-certs=true
           --server=https://{{ api_hostname }}:6443
@@ -147,7 +133,7 @@
           --kubeconfig={{ item.name }}.kubeconfig
           ;
           kubectl config set-context default
-          --cluster=kubernetes-the-hard-way
+          --cluster={{ cluster_name }}
           --user={{ item.cred }}
           --kubeconfig={{ item.name }}.kubeconfig
           ;
@@ -164,7 +150,7 @@
       ansible.builtin.shell:
         chdir: "{{ role_path }}/kubeconfigs/"
         cmd: '
-          kubectl config set-cluster kubernetes-the-hard-way
+          kubectl config set-cluster {{ cluster_name }}
           --certificate-authority=../ca/ca.crt
           --embed-certs=true
           --server=https://{{ api_hostname }}:6443
@@ -174,11 +160,11 @@
           --client-key=../ca/{{ item.name }}.key
           --embed-certs=true
           ;
-          kubectl config set-context kubernetes-the-hard-way
-          --cluster=kubernetes-the-hard-way
+          kubectl config set-context {{ cluster_name }}
+          --cluster={{ cluster_name }}
           --user={{ item.cred }}
           ;
-          kubectl config use-context kubernetes-the-hard-way'
+          kubectl config use-context {{ cluster_name }}'
         creates: "/home/david/.kube/config"
       loop:
         - { name: admin, cred: admin }

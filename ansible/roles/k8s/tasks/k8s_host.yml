@@ -1,0 +1,84 @@
+- name: Install packages
+  apt:
+    name: "{{ item }}"
+    state: present
+    install_recommends: false
+  register: apt_action
+  retries: 120
+  delay: 1
+  until: apt_action is success or ('Failed to lock apt for exclusive operation' not in apt_action.msg and '/var/lib/dpkg/lock' not in apt_action.msg)
+  loop:
+    - "xmlstarlet"
+    - "lvm2"
+    # Plus all the libvirt stuff obviously
+- name: Setup LAN
+  ansible.builtin.template:
+    src: routes.tmpl
+    dest: /etc/network/routes
+    mode: '0755'
+  notify: "reload routes"
+  vars:
+    nodes: "{{ groups['k8snode'] | map('extract', hostvars) | selectattr('k8s_host','equalto', inventory_hostname_short) }}"
+# - name: Create VMs
+#   include_tasks: "{{role_path}}/tasks/k8s_host_mk_vm.yml"
+#   loop: "{{ k8snode_short }}"
+#   loop_control:
+#     loop_var: node
+- name: "Run mk_lv for {{ k8snode_short }}"
+  ansible.builtin.shell:
+    cmd: '
+      /everything/net/bin/mk_lv
+      --rootsize {{k8s_rootsize}} --varsize {{k8s_varsize}}
+      --noswap --datasize {{k8s_datasize}}
+      --noconfirm
+      {{ inventory_hostname_short }} {{ node }}
+      '
+    creates: "/dev/{{ k8s_node_vg }}/{{ node }}_root"
+  when: hostvars[node+"."+domain].k8s_host == inventory_hostname_short
+  vars:
+    node_f: "{{node+'.'+domain}}"
+    k8s_rootsize: "{{hostvars[node_f].k8s_rootsize}}"
+    k8s_varsize: "{{hostvars[node_f].k8s_varsize}}"
+    k8s_datasize: "{{hostvars[node_f].k8s_datasize}}"
+  loop: "{{ k8snode_short }}"
+  loop_control:
+    loop_var: node
+
+- name: "Run mk_vm for {{ k8snode_short }}"
+  ansible.builtin.shell:
+    cmd: '
+      /everything/net/bin/mk_vm
+      --datavg -v
+      {{ inventory_hostname_short }} {{ node }} {{ k8s_node_mk_vm_os }}
+      '
+    creates: "/etc/libvirt/qemu/{{ node }}.xml"
+  when: hostvars[node+"."+domain].k8s_host == inventory_hostname_short
+  vars:
+    node_f: "{{node+'.'+domain}}"
+    k8s_nodecpus: "{{hostvars[node_f].k8s_node_cpus}}"
+    k8s_nodemem: "{{hostvars[node_f].k8s_nodemem}}"
+  loop: "{{ k8snode_short }}"
+  loop_control:
+    loop_var: node
+
+- name: "Set CPUs for {{ node }}"
+  ansible.builtin.shell:
+    cmd: 'virsh setvcpus {{ node }} {{ k8s_nodecpus }}  --live --config --hotpluggable'
+  when: hostvars[node+"."+domain].k8s_host == inventory_hostname_short
+  vars:
+    node_f: "{{node+'.'+domain}}"
+    k8s_nodecpus: "{{ hostvars[node_f].k8s_nodecpus }}"
+  loop: "{{ k8snode_short }}"
+  loop_control:
+    loop_var: node
+
+- name: "Set RAM for {{ node }}"
+  ansible.builtin.shell:
+    cmd: 'virsh setmem {{ node }} {{ k8s_nodemem }}  --live --config'
+  when: hostvars[node+"."+domain].k8s_host == inventory_hostname_short
+  vars:
+    node_f: "{{node+'.'+domain}}"
+    k8s_nodemem: "{{ hostvars[node_f].k8s_nodemem }}"
+  loop: "{{ k8snode_short }}"
+  loop_control:
+    loop_var: node

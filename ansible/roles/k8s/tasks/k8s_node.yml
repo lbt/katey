@@ -1,4 +1,5 @@
 - name: Install k8s node
+  when: k8s_host != "none" # Only run for nodes that are deploye
   block:
     - name: Install packages
       apt:
@@ -148,3 +149,24 @@
         --overwrite
         --kubeconfig /etc/kubernetes/config/admin.kubeconfig'
       when: k8s_plane is defined and k8s_plane == true
+
+    - name: Get host PCI slot for data disk
+      ansible.builtin.shell: '
+        virsh dumpxml {{ node }} |
+        xmlstarlet sel -t -v
+        "//disk[source/@dev=''/dev/{{ vg }}/{{ node }}_data'']/address/@slot"
+        - |
+        cut -f2 -dx
+        '
+      delegate_to: "{{ k8s_host }}"
+      ignore_errors: true
+      register: pci_slot
+      vars:
+        vg: "{{ hostvars[k8s_host+'.'+domain].k8s_node_vg }}"
+        node: "{{ inventory_hostname_short }}"
+
+    - name: "Create VG for TopoLVM {{inventory_hostname}}:{{ pci_slot.stdout }}"
+      ansible.builtin.command:
+        cmd: 'vgcreate k8s-storage /dev/disk/by-path/virtio-pci-0000:00:{{pci_slot.stdout}}.0'
+        creates: "/dev/disk/by-id/lvm-pv-uuid-*"
+      when: 'pci_slot.stdout != ""'

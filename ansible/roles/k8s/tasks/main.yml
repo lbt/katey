@@ -13,6 +13,11 @@
   when:
     k8s_host is defined and k8s_host == true
 
+- name: K8S VM setup ansible main task
+  ansible.builtin.include_tasks: k8s_node_vm.yml
+  when:
+    k8s_node is defined and k8s_node == true
+
 - name: K8S Plane role main task
   ansible.builtin.include_tasks: k8s_plane.yml
   when:

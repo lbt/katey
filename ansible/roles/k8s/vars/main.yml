@@ -1,0 +1,8 @@
+---
+cluster_name: katey
+api_hostname: kubernetes
+domain: dgreaves.com
+
+
+# Utility list
+k8snode_short: "{{ groups['k8snode'] | map('regex_replace','^([^.]*?)\\..*', '\\1') | list }}" # Convert fqdn to shortnames

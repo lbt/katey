@@ -1,0 +1,11 @@
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      routes:
+{% for n in nodes if n.inventory_hostname != inventory_hostname %}
+        - to: {{ n.k8s_node_subnet }}
+          via: {{ lookup('dig', n.inventory_hostname) }}
+          metric: 100
+{% endfor -%}
