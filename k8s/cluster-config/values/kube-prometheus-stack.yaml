@@ -1,0 +1,304 @@
+---
+# kube-prometheus-stack values for bare-metal Kubernetes
+# This configures Prometheus, Grafana, Alertmanager, and exporters
+
+# Global settings
+fullnameOverride: "prometheus"
+
+# Prometheus Operator configuration
+prometheusOperator:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Prometheus configuration
+prometheus:
+  enabled: true
+
+  prometheusSpec:
+    # Retention period
+    retention: 15d
+    retentionSize: "18GB"  # Slightly less than PVC size for safety
+
+    # Resource limits
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+
+    # Storage configuration for TopoLVM
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: topolvm-storage
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+
+    # ServiceMonitor selector - monitor everything
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    # External labels for federation/remote write
+    externalLabels:
+      cluster: "katey-bare-metal"
+      environment: "development"
+
+    # Scrape configs - add any custom scrape jobs here later
+    additionalScrapeConfigs: []
+
+  # Ingress for Prometheus UI (optional, usually access via Grafana)
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: "prometheus-k8s.dgreaves.com"
+    hosts:
+      - prometheus-k8s.dgreaves.com
+    tls:
+      - secretName: wildcard-dgreaves-com-secret
+        hosts:
+          - prometheus-k8s.dgreaves.com
+
+# Grafana configuration
+grafana:
+  enabled: true
+
+  # Admin credentials (override in secrets file)
+  adminPassword: "changeme"  # Override in secrets file
+
+  # Persistence for dashboards and config
+  persistence:
+    enabled: true
+    storageClassName: topolvm-storage
+    size: 5Gi
+    accessModes:
+      - ReadWriteOnce
+
+  # Resource limits
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+  # Ingress configuration
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: "grafana-k8s.dgreaves.com"
+    hosts:
+      - grafana-k8s.dgreaves.com
+    tls:
+      - secretName: wildcard-dgreaves-com-secret
+        hosts:
+          - grafana-k8s.dgreaves.com
+
+  # Grafana configuration
+  grafana.ini:
+    server:
+      root_url: https://grafana-k8s.dgreaves.com
+      domain: grafana-k8s.dgreaves.com
+
+    smtp:
+      enabled: true
+      host: smtp.dgreaves.com:25
+      from_address: grafana@dgreaves.com
+      from_name: Grafana Katey Cluster
+      skip_verify: true
+
+    alerting:
+      enabled: true
+
+  # Data sources - Prometheus is auto-configured
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-kube-prometheus-prometheus:9090
+          access: proxy
+          isDefault: true
+          jsonData:
+            timeInterval: 30s
+
+  # Dashboard providers - enables dashboard ConfigMaps
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+
+  # Pre-installed dashboards (the stack includes ~40 default dashboards)
+  dashboards: {}
+
+  # Default dashboards from kube-prometheus-stack
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: UTC
+
+# Alertmanager configuration
+alertmanager:
+  enabled: true
+
+  alertmanagerSpec:
+    # Storage for Alertmanager
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: topolvm-storage
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+    # Resource limits
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  # Alertmanager configuration (override in secrets for sensitive data)
+  config:
+    global:
+      smtp_smarthost: 'smtp.dgreaves.com:25'
+      smtp_from: 'alertmanager@dgreaves.com'
+      smtp_require_tls: false
+
+    route:
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 12h
+      receiver: 'default-receiver'
+      routes:
+        - match:
+            severity: critical
+          receiver: 'critical-receiver'
+          continue: true
+        - match:
+            severity: warning
+          receiver: 'warning-receiver'
+
+    receivers:
+      - name: 'default-receiver'
+        email_configs:
+          - to: 'admin@dgreaves.com'  # Override in secrets
+            headers:
+              Subject: '[Katey] {{ .GroupLabels.alertname }}'
+
+      - name: 'critical-receiver'
+        email_configs:
+          - to: 'admin@dgreaves.com'  # Override in secrets
+            headers:
+              Subject: '[Katey CRITICAL] {{ .GroupLabels.alertname }}'
+
+      - name: 'warning-receiver'
+        email_configs:
+          - to: 'admin@dgreaves.com'  # Override in secrets
+            headers:
+              Subject: '[Katey Warning] {{ .GroupLabels.alertname }}'
+
+  # Ingress for Alertmanager UI
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      external-dns.alpha.kubernetes.io/hostname: "alertmanager-k8s.dgreaves.com"
+    hosts:
+      - alertmanager-k8s.dgreaves.com
+    tls:
+      - secretName: wildcard-dgreaves-com-secret
+        hosts:
+          - alertmanager-k8s.dgreaves.com
+
+# Node exporter - collects host-level metrics
+prometheus-node-exporter:
+  enabled: true
+  resources:
+    limits:
+      cpu: 200m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+# Kube-state-metrics - collects K8s object metrics
+kube-state-metrics:
+  enabled: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 10m
+      memory: 64Mi
+
+# Default rules and alerts
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: true
+    configReloaders: true
+    general: true
+    k8s: true
+    kubeApiserverAvailability: true
+    kubeApiserverSlos: true
+    kubeControllerManager: true
+    kubelet: true
+    kubeProxy: true
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeSchedulerAlerting: true
+    kubeSchedulerRecording: true
+    kubeStateMetrics: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+
+# Service monitors for control plane components
+kubeControllerManager:
+  enabled: false  # Not exposed in kubernetes-the-hard-way setup
+
+kubeEtcd:
+  enabled: false  # Not exposed in kubernetes-the-hard-way setup
+
+kubeScheduler:
+  enabled: false  # Not exposed in kubernetes-the-hard-way setup
+
+kubeProxy:
+  enabled: true
+
+coreDns:
+  enabled: true

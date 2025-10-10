@@ -3,7 +3,3 @@ certname: wildcard-dgreaves-com
 tlsCrt: {{ readFile "/everything/devel/letsencrypt/etc/live/dgreaves.com/fullchain.pem.b64" | quote }}
 tlsKey: {{ readFile "/everything/devel/letsencrypt/etc/live/dgreaves.com/privkey.pem.b64" | quote }}
 renewedAt: {{ readFile "/everything/devel/letsencrypt/etc/live/dgreaves.com/renewed_at" | trim | quote }}
-# What namespaces should this be deployed to
-namespaces:
-  - ingress-nginx
-  - monitoring

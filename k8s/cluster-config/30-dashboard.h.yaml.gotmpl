@@ -4,6 +4,19 @@ repositories:
     url: https://kubernetes.github.io/dashboard/
 
 releases:
+  - name: dgreaves-wildcard
+    namespace: kubernetes-dashboard
+    chart: ./charts/dgreaves-wildcard
+    installed: true
+    values:
+      # These are parsed by helmfile gotmpl and passed into helm as .Values
+      - ./values/kubernetes-dashboard-prepare-values.yaml.gotmpl
+      - namespaces:
+        - kubernetes-dashboard
+    set:
+      - name: podAnnotations.checksum/config
+        value: {{ readFile "./charts/ingress-nginx-prepare/templates/ingress-prepare.yaml.gotmpl" | sha256sum }}
+
   - name: kubernetes-dashboard
     namespace: kubernetes-dashboard
     chart: kubernetes-dashboard/kubernetes-dashboard

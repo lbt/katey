@@ -9,3 +9,5 @@ kong:
       external-dns.alpha.kubernetes.io/hostname: k8s-dashboard.dgreaves.com.
     http:
       enabled: false
+global:
+  clusterName: Katey

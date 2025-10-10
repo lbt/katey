@@ -1,3 +1,3 @@
 apiVersion: v2
-name: ingress-nginx-prepare
+name: metrics-prepare
 version: 0.1.0

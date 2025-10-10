@@ -1,3 +1,5 @@
 sync
 *~
 *.excludes
+prompt
+k8s/test*log

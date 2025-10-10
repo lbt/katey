@@ -5,5 +5,4 @@ tlsKey: {{ readFile "/everything/devel/letsencrypt/etc/live/dgreaves.com/privkey
 renewedAt: {{ readFile "/everything/devel/letsencrypt/etc/live/dgreaves.com/renewed_at" | trim | quote }}
 # What namespaces should this be deployed to
 namespaces:
-  - ingress-nginx
-  - monitoring
+  - kubernetes-dashboard

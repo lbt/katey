@@ -40,23 +40,22 @@ releases:
     values:
       - ./values/metallb.yaml
     # This was not being done - not sure if it's needed
-    # hooks:
-    #   - events: ["postapply"]
-    #     showlogs: true
-    #     command: "kubectl"
-    #     args: ["apply", "-f", "manifests/metallb.yaml"]
+    hooks:
+      - events: ["postsync"]
+        showlogs: true
+        command: "kubectl"
+        args: ["apply", "-f", "manifests/metallb-config.yaml"]
 
   # This uses a minimal local chart
-  - name: ingress-nginx-prepare
+  - name: dgreaves-wildcard
     namespace: ingress-nginx
-    chart: ./charts/ingress-nginx-prepare
+    chart: ./charts/dgreaves-wildcard
     installed: true
     values:
       # These are parsed by helmfile gotmpl and passed into helm as .Values
-      - ./values/ingress-nginx-prepare-values.yaml.gotmpl
-    set:
-      - name: podAnnotations.checksum/config
-        value: {{ readFile "./charts/ingress-nginx-prepare/templates/ingress-prepare.yaml.gotmpl" | sha256sum }}
+      - ./values/dgreaves-wildcard-values.yaml.gotmpl
+      - namespaces:
+          - ingress-nginx
 
   - name: ingress-nginx
     # https://github.com/kubernetes/ingress-nginx
@@ -64,7 +63,7 @@ releases:
     chart: ingress-nginx/ingress-nginx
     version: ~4.13.0
     needs:
-      - ingress-nginx/ingress-nginx-prepare
+      - ingress-nginx/dgreaves-wildcard
     values:
       - ./values/ingress-nginx-values.yaml
     set:

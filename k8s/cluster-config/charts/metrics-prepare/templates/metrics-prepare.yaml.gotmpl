@@ -1,0 +1,18 @@
+# kubectl create secret generic proxy-ca-secret   --from-file=proxy-ca.crt=/everything/net/ansible/roles/k8s/ca/proxy-ca.crt   -n kube-system
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-system
+{{- $certName := .Values.certname -}}
+{{- $tlsCrt := .Values.tlsCrt -}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $certName }}-secret
+  namespace: kube-system
+  labels:
+    k8s.dgreaves.com/secret: {{ $certName }}
+type: Opaque
+stringData:
+  {{ $certName }}.crt: {{ $tlsCrt | quote}}
