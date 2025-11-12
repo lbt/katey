@@ -1,12 +1,18 @@
 # Kong gateway - this is the main entry point
 kong:
   enabled: true
+  # This is the magic to enable TLS for Kong:
+  env:
+    ssl_cert: /etc/secrets/wildcard-dgreaves-com-secret/tls.crt
+    ssl_cert_key: /etc/secrets/wildcard-dgreaves-com-secret/tls.key
+  secretVolumes:
+    - wildcard-dgreaves-com-secret
   proxy:
     type: LoadBalancer
     loadBalancerIP: 10.1.0.110
     annotations:
       metallb.universe.tf/address-pool: k8s-services-pool
-      external-dns.alpha.kubernetes.io/hostname: k8s-dashboard.dgreaves.com.
+      external-dns.alpha.kubernetes.io/hostname: dashboard-k8s.dgreaves.com.
     http:
       enabled: false
 global:

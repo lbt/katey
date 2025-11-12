@@ -9,19 +9,17 @@ releases:
     chart: ./charts/dgreaves-wildcard
     installed: true
     values:
-      # These are parsed by helmfile gotmpl and passed into helm as .Values
-      - ./values/kubernetes-dashboard-prepare-values.yaml.gotmpl
+      - ./values/dgreaves-wildcard-values.yaml.gotmpl
       - namespaces:
         - kubernetes-dashboard
-    set:
-      - name: podAnnotations.checksum/config
-        value: {{ readFile "./charts/ingress-nginx-prepare/templates/ingress-prepare.yaml.gotmpl" | sha256sum }}
 
   - name: kubernetes-dashboard
     namespace: kubernetes-dashboard
     chart: kubernetes-dashboard/kubernetes-dashboard
     version: ~7.8.0  # Use latest 7.x version
-    createNamespace: true
+    needs:
+      - kubernetes-dashboard/dgreaves-wildcard
+
     values: # Set some chart values - in this case a loadbalancer IP for Kong
       - ./values/kubernetes-dashboard.yaml
     hooks: # We use a hook as this enforces a dependency to run after the sync
@@ -54,3 +52,4 @@ releases:
 #
 # Generate a login token using:
 # kubectl -n kubernetes-dashboard create token dashboard-user
+

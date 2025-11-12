@@ -120,7 +120,7 @@ grafana:
       from_name: Grafana Katey Cluster
       skip_verify: true
 
-    alerting:
+    unified_alerting:
       enabled: true
 
   # Data sources - Prometheus is auto-configured
@@ -130,7 +130,7 @@ grafana:
       datasources:
         - name: Prometheus
           type: prometheus
-          url: http://prometheus-kube-prometheus-prometheus:9090
+          url: http://prometheus-prometheus.monitoring.svc.cluster.local:9090
           access: proxy
           isDefault: true
           jsonData:

@@ -14,4 +14,87 @@ releases:
     values:
       - ./values/kube-prometheus-stack.yaml
       - ./values/kube-prometheus-stack-secrets.yaml
+      - default:
+          installCRDs: true
     wait: true
+
+
+# Pod Component	Purpose
+# prometheus-prometheus-prometheus-0
+#     The main Prometheus server that scrapes and stores time-series metrics
+# prometheus-operator-*
+#     Manages Prometheus and related monitoring resources.
+# alertmanager-prometheus-alertmanager-0
+#     Handles alerts sent by the Prometheus server.
+# kube-prometheus-stack-grafana-*
+#     Provides the Grafana dashboard for visualization.
+# kube-prometheus-stack-kube-state-metrics-*
+#     Generates metrics about Kubernetes objects (pods, deployments).
+# kube-prometheus-stack-prometheus-node-exporter-*
+#     Exposes node-level hardware and OS metrics.
+
+
+
+#Here is a summary of the services in your monitoring namespace:
+# Service Name	Type	Purpose
+# prometheus-prometheus	ClusterIP
+#     Main user-facing service for the Prometheus server. Use this to
+#     access the web UI and query metrics
+
+# prometheus-operated	ClusterIP (Headless)
+#     Governing service for the Prometheus StatefulSet. Used by the
+#     operator for service discovery; do not modify
+
+# prometheus-alertmanager	ClusterIP
+#     Main user-facing service for the Alertmanager component, which
+#     handles alert routing and silencing
+
+# alertmanager-operated	ClusterIP (Headless)
+#     Governing service for the Alertmanager StatefulSet. Used
+#     internally for forming a cluster; do not modify.
+
+# kube-prometheus-stack-grafana	ClusterIP
+#     Service for the Grafana dashboard, used for visualizing metrics
+
+# kube-prometheus-stack-kube-state-metrics	ClusterIP
+#     Exposes metrics about the state of Kubernetes API objects (e.g.,
+#     deployments, pods)
+
+# kube-prometheus-stack-prometheus-node-exporter	ClusterIP
+#     Collects hardware and OS-level metrics from each cluster node
+#     via a DaemonSet
+
+# prometheus-operator	ClusterIP
+#     Service for the Prometheus Operator pod, which automates the
+#     management of Prometheus and Alertmanager instances .
+
+
+# External Access via Ingress
+#
+# Grafana	https://grafana-k8s.dgreaves.com
+#     Primary dashboard for visualizing metrics and creating
+#     monitoring dashboards.
+#
+# Prometheus	https://prometheus-k8s.dgreaves.com
+#     Direct access to Prometheus UI for querying metrics, managing
+#     alerts, and checking targets.
+#
+# Alertmanager	https://alertmanager-k8s.dgreaves.com
+#     Manage and silence alerts sent from Prometheus.
+#
+# All URLs are secured with TLS using your wildcard certificate. You
+# can access them directly from any browser without needing port
+# forwarding.
+#
+# Internal Service Access
+#
+# For applications running inside your cluster that need to connect to
+# these monitoring services, use these internal service names:
+#
+# Service	Internal Service URL	Use Case
+# Grafana	http://kube-prometheus-stack-grafana.monitoring:80
+#     For applications that need to push data to Grafana.
+# Prometheus	http://prometheus-prometheus.monitoring:9090
+#     Grafana data source configuration and service-to-service metrics queries.
+# Alertmanager	http://prometheus-alertmanager.monitoring:9093
+#     For services that need to send alerts directly to Alertmanager.
