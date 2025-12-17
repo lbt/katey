@@ -1,21 +1,111 @@
+================================================================
+BoA Nomad/Consul lab (vm based)
+Underlying machine elm
+24 core
+128G ram
+mirrored NVMe LVMs
+
+Nomad
+
+nomad                   A       10.0.3.2 Control plane
+nomad0-nomad            A       10.0.3.2
+
+ns0                     A       10.0.3.3 Servers
+ns0-nomad               A       10.0.3.3
+ns1                     A       10.0.3.4
+ns1-nomad               A       10.0.3.4
+ns2                     A       10.0.3.5
+ns2-nomad               A       10.0.3.5
+
+nw0                     A       10.0.3.10 Workers
+nw0-nomad               A       10.0.3.10
+nw1                     A       10.0.3.11
+nw1-nomad               A       10.0.3.11
+nw2                     A       10.0.3.12
+nw2-nomad               A       10.0.3.12
+nw3                     A       10.0.3.13
+nw3-nomad               A       10.0.3.13
+
+
+Consul servers (3 + failover spare)
+
+cs0                     A       10.0.3.100
+cs0-nomad               A       10.0.3.100
+cs1                     A       10.0.3.101
+cs1-nomad               A       10.0.3.101
+cs2                     A       10.0.3.102
+cs2-nomad               A       10.0.3.102
+cs3                     A       10.0.3.103
+cs3-nomad               A       10.0.3.103
+cs4                     A       10.0.3.104
+cs4-nomad               A       10.0.3.104
+
+
+================================================================
 VM DNS entries
 
-k8n0			A	10.0.0.200
-k8n0-vlan0		A	10.0.0.200
-k8n1			A	10.0.0.201
-k8n1-vlan0		A	10.0.0.201
-k8n2			A	10.0.0.202
-k8n2-vlan0		A	10.0.0.202
-k8n3			A	10.0.0.203
-k8n3-vlan0		A	10.0.0.203
-k8nm			A	10.0.0.210
-k8nm-vlan0		A	10.0.0.210
-kubernetes              CNANE   k8nm ; for api-server
-server                  CNANE   k8nm
-node-0			CNAME	k8n0
-node-1			CNAME	k8n1
-node-2			CNAME	k8n2
-node-3			CNAME	k8n3
+Baremetal k8s
+
+Services
+alertmanager-k8s        A       10.1.0.1
+dashboard-k8s           A       10.1.0.110
+grafana-k8s             A       10.1.0.1
+
+Contol planes (ash + elm)
+k8nm0                   A       10.0.0.240
+k8nm0-vlan0             A       10.0.0.240
+k8nm1                   A       10.0.0.241
+k8nm1-vlan0             A       10.0.0.241
+
+kubernetes              CNAME   k8nm0
+node-0                  CNAME   k8n0
+node-1                  CNAME   k8n1
+node-2                  CNAME   k8n2
+node-3                  CNAME   k8n3
+
+Nodes (Not all active - spread over ash + elm)
+k8n0                    A       10.0.0.200
+k8n0-vlan0              A       10.0.0.200
+k8n1                    A       10.0.0.201
+k8n1-vlan0              A       10.0.0.201
+k8n10                   A       10.0.0.210
+k8n10-vlan0             A       10.0.0.210
+k8n11                   A       10.0.0.211
+k8n11-vlan0             A       10.0.0.211
+k8n12                   A       10.0.0.212
+k8n12-vlan0             A       10.0.0.212
+k8n13                   A       10.0.0.213
+k8n13-vlan0             A       10.0.0.213
+k8n14                   A       10.0.0.214
+k8n14-vlan0             A       10.0.0.214
+k8n15                   A       10.0.0.215
+k8n15-vlan0             A       10.0.0.215
+k8n16                   A       10.0.0.216
+k8n16-vlan0             A       10.0.0.216
+k8n2                    A       10.0.0.202
+k8n2-vlan0              A       10.0.0.202
+k8n3                    A       10.0.0.203
+k8n3-vlan0              A       10.0.0.203
+k8n4                    A       10.0.0.204
+k8n4-vlan0              A       10.0.0.204
+k8n5                    A       10.0.0.205
+k8n5-vlan0              A       10.0.0.205
+k8n6                    A       10.0.0.206
+k8n6-vlan0              A       10.0.0.206
+k8n7                    A       10.0.0.207
+k8n7-vlan0              A       10.0.0.207
+k8n8                    A       10.0.0.208
+k8n8-vlan0              A       10.0.0.208
+k8n9                    A       10.0.0.209
+k8n9-vlan0              A       10.0.0.209
+
+Dynamic:
+ext-dns-katey-a-alertmanager-k8s TXT "heritage=external-dns,external-dns/owner=katey-cluster,external-dns/resource=ingress/monitoring/prometheus-alertmanager"
+ext-dns-katey-a-dashboard-k8s TXT "heritage=external-dns,external-dns/owner=katey-cluster,external-dns/resource=service/kubernetes-dashboard/kubernetes-dashboard-kong-proxy"
+ext-dns-katey-a-grafana-k8s TXT "heritage=external-dns,external-dns/owner=katey-cluster,external-dns/resource=ingress/monitoring/kube-prometheus-stack-grafana"
+ext-dns-katey-a-prometheus-k8s TXT "heritage=external-dns,external-dns/owner=katey-cluster,external-dns/resource=ingress/monitoring/prometheus-prometheus"
+ext-dns-katey-a-registry-k8s TXT "heritage=external-dns,external-dns/owner=katey-cluster,external-dns/resource=ingress/zot-registry/zot-registry"
+
 
 All nodes have:
 4Gb RAM
@@ -24,12 +114,13 @@ All nodes have:
 /dev/vda        5.9G  1.2G  4.4G  21% /
 /dev/vdb        3.9G  2.8G  913M  76% /var
 
-LVM2
+LVM2 nested lvm allocation
   PV         VG          Fmt  Attr PSize   PFree
   /dev/vdc   k8s-storage lvm2 a--  <20.00g <20.00g
 
-The underlying host has 128Gb RAM and 24 cores
+The underlying host has 128Gb RAM and 16 cores
 
   /dev/md1       virt  lvm2 a--   <1.82t  18.94g
   /dev/md2       fast  lvm2 a--  465.63g  89.63g
   /dev/nvme0n1p1 fast2 lvm2 a--   <1.82t 617.01g
+

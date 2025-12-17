@@ -1,6 +1,9 @@
 The network layout is
 
 10.0.0.0/24    Used for home LAN. The k8s nodes live in this network
+
+10.0.3.0/24    Used for BoA Nomad/Consul LAN. Route via 10.0.0.2. DNS via 10.0.0.7
+
 10.1.0.0/24  - LoadBalancer and exposed service IP range
 10.200.x.0/24  Each Node has a private LAN in this range
 10.32.0.0/24 - Kubernetes ClusterIP range

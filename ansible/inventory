@@ -1,16 +1,116 @@
-    k8nm.dgreaves.com:
+katey:
+  vars:
+    k8s_node_mk_vm_os: ubuntu/noble
+    k8s_rootsize: 5G
+    k8s_varsize: 10G
+    k8s_datasize: 0G
+    k8s_nodecpus: 4
+    k8s_nodemem: 4G
+  hosts:
+    mgr.dgreaves.com:
+      k8s_control: true
+    k8nm0.dgreaves.com:
       k8s_plane: true
+      k8s_host: ash
       k8s_node: true
-      k8s_node_subnet: 10.200.10.0/24
+      k8s_node_subnet: 10.200.240.0/24
+    k8nm1.dgreaves.com:
+      k8s_plane: true
+      k8s_host: none
+      k8s_node: true
+      k8s_node_subnet: 10.200.241.0/24
     k8n0.dgreaves.com:
       k8s_node: true
+      k8s_host: ash
       k8s_node_subnet: 10.200.0.0/24
+      k8s_datasize: 50G
     k8n1.dgreaves.com:
       k8s_node: true
+      k8s_host: ash
       k8s_node_subnet: 10.200.1.0/24
+      k8s_datasize: 50G
     k8n2.dgreaves.com:
       k8s_node: true
+      k8s_host: ash
       k8s_node_subnet: 10.200.2.0/24
+      k8s_datasize: 10G
     k8n3.dgreaves.com:
       k8s_node: true
+      k8s_host: ash
       k8s_node_subnet: 10.200.3.0/24
+      k8s_datasize: 10G
+    k8n10.dgreaves.com:
+      k8s_node: true
+      k8s_host: none
+      k8s_node_subnet: 10.200.10.0/24
+    k8n11.dgreaves.com:
+      k8s_node: true
+      k8s_host: none
+      k8s_node_subnet: 10.200.11.0/24
+    k8n12.dgreaves.com:
+      k8s_node: true
+      k8s_host: none
+      k8s_node_subnet: 10.200.12.0/24
+    k8n13.dgreaves.com:
+      k8s_node: true
+      k8s_host: none
+      k8s_node_subnet: 10.200.13.0/24
+
+ocp4:
+  hosts:
+
+consul:
+  vars:
+    hashicorp_packages:
+    - consul
+    common_group_packages:
+    - gpg
+  children:
+    consul_servers:
+      vars:
+        hashicorp_consul_server: true
+      hosts:
+        cs0.dgreaves.com:
+          hashicorp_consul_server_index: 0
+        cs1.dgreaves.com:
+          hashicorp_consul_server_index: 1
+        cs2.dgreaves.com:
+          hashicorp_consul_server_index: 2
+    consul_agents:
+      vars:
+        hashicorp_consul_agent: true
+      hosts:
+
+nomad:
+  vars:
+    hashicorp_packages:
+    - nomad
+    - consul
+    common_group_packages:
+    - gpg
+  children:
+    nomad_servers:
+      vars:
+        hashicorp_nomad_server: true
+      hosts:
+        ns0.dgreaves.com:
+        ns1.dgreaves.com:
+        ns2.dgreaves.com:
+    nomad_workers:
+      vars:
+        hashicorp_nomad_client: true
+      hosts:
+        nw0.dgreaves.com:
+          hashicorp_nomad_podman: true
+        nw1.dgreaves.com:
+          hashicorp_nomad_podman: true
+        nw2.dgreaves.com:
+          common_everything: true
+        nw3.dgreaves.com:
+  hosts:
+    nomad.dgreaves.com:
+      common_everything: true
+
+ansible:
+  hosts:
+    localhost:
