@@ -1,27 +1,30 @@
 - name: Hashicorp role apt task
   ansible.builtin.import_tasks: hashicorp_apt.yml
   tags: [always]
+
+################################################################
+
 - name: Hashicorp role apt task for consul_ca_host
   delegate_to: "{{ consul_ca_host }}"
   ansible.builtin.import_tasks: hashicorp_apt.yml
   run_once: true
   tags: [consul]
-- name: Hashicorp role podman dependency task
-  ansible.builtin.import_tasks: podman.yml
-  when: hashicorp_nomad_podman is defined
-  tags: [nomad]
+
 - name: Hashicorp role consul security task
   ansible.builtin.import_tasks: consul_security.yml
   when: hashicorp_consul_server is defined
   tags: [consul]
+
 - name: Hashicorp role consul config task
   ansible.builtin.import_tasks: consul_config.yml
   when: hashicorp_consul_server is defined or hashicorp_consul_client is defined
   tags: [consul]
+
 - name: Hashicorp role consul service task
   ansible.builtin.import_tasks: consul_service.yml
   when: hashicorp_consul_server is defined or hashicorp_consul_client is defined
   tags: [consul]
+
 - name: Hashicorp role consul acl bootstrap task
   ansible.builtin.import_tasks: consul_acl.yml
   when: hashicorp_consul_server is defined
@@ -30,6 +33,13 @@
     CONSUL_CACERT: /etc/consul.d/certs/consul-agent-ca.pem
     CONSUL_CLIENT_CERT: /etc/consul.d/certs/{{ consul_dc_name }}-server-{{ consul_domain }}-{{ hashicorp_consul_server_index }}.pem
     CONSUL_CLIENT_KEY: /etc/consul.d/certs/{{ consul_dc_name }}-server-{{ consul_domain }}-{{ hashicorp_consul_server_index }}-key.pem
+
+################################################################
+
+- name: Hashicorp role podman dependency task
+  ansible.builtin.import_tasks: podman.yml
+  when: hashicorp_nomad_podman is defined
+  tags: [nomad]
 
 - name: Hashicorp role nomad agent task
   ansible.builtin.import_tasks: nomad_agent.yml
