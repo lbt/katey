@@ -84,10 +84,11 @@ consul:
 nomad:
   vars:
     hashicorp_packages:
-    - nomad
-    - consul
+      - nomad
+      - consul
     common_group_packages:
-    - gpg
+      - gpg
+    hashicorp_consul_agent: true
   children:
     nomad_servers:
       vars:
