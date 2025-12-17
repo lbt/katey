@@ -1,0 +1,51 @@
+This area contains the configs needed to setup the k8s cluster.
+
+First setup the VMs k8nm,0,1,2,3 and use ansible to get them running as k8s control plane/nodes
+
+    ansible-playbook  k8s_site.yml
+
+At this point kubectl, helm, helm diff and helmfile should work from david@mgr
+
+
+Then setup CoreDNS from bootstrap using:
+
+    kubectl apply -f bootstrap/CoreDNS.yml
+
+Setup the infra:
+    helmfile -f cluster-config/00-infra.h.yaml.gotmpl apply
+
+    helmfile -f cluster-config/10-storage.h.yaml apply
+
+    helmfile -f cluster-config/20-metrics.h.yaml.gotmpl apply
+
+    helmfile -f cluster-config/30-dashboard.h.yaml.gotmpl apply
+
+    helmfile -f cluster-config/40-grafana.h.yaml.gotmpl apply
+
+    helmfile -f cluster-config/50-consul.h.yaml.gotmpl apply
+
+    helmfile -f cluster-config/100-zot-registry.h.yaml.gotmpl apply
+
+
+Consul done manually:
+    helm repo add hashicorp https://helm.releases.hashicorp.com
+    helm search repo hashicorp/consul
+    helm install consul hashicorp/consul --create-namespace --namespace consul --values consul_values.yaml
+
+Issues:
+* TODO topolvm is not Default storage class
+
+Fixed using:
+
+```
+kubectl patch storageclass topolvm-storage -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+```
+Need to look at the helmfile value at some point
+https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/
+* TODO Resize topolvm data volumes
+Did this for node 0/1 to 50G so it's possible.
+
+
+# Local Variables:
+# eval: (visual-line-mode 1)
+# End:
