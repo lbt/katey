@@ -1,0 +1,28 @@
+---
+- name: Consul Config | Get gossip key
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.slurp:
+    src: "{{ role_path }}/files/consul/gossip_key"
+  register: _gossip_key_slurp
+
+- name: Consul Config | Set gossip key fact
+  run_once: true
+  ansible.builtin.set_fact:
+    consul_gossip_key: "{{ _gossip_key_slurp['content'] | b64decode }}"
+
+- name: Consul Config | Deploy Environment
+  ansible.builtin.template:
+    dest: /etc/consul.d/consul.env
+    src: templates/consul.env.j2
+    mode: "0640"
+    owner: consul
+    group: consul
+
+- name: Consul Config | Deploy Config
+  ansible.builtin.template:
+    dest: /etc/consul.d/consul.hcl
+    src: templates/consul.hcl.j2
+    mode: "0640"
+    owner: consul
+    group: consul

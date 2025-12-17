@@ -1,0 +1,173 @@
+---
+- name: get the username running the deploy
+  run_once: true
+  ansible.builtin.set_fact:
+    ca_username: "{{ lookup('env','USER') }}"
+
+# Get the bootstrap file
+- name: Consul ACL | Check acl key
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.stat:
+    path: "{{ role_path }}/files/consul/acl_bootstrap"
+  register: _acl_bootstrap_stat
+
+- name: Consul ACL | Generate acl bootstrap key
+  # Always run bootstrap on the same (first) server
+  when:
+    - hashicorp_consul_server_index == 0
+    - not _acl_bootstrap_stat.stat.exists
+  ansible.builtin.command:
+    cmd: /usr/bin/consul acl bootstrap
+  register: _consul_acl_bootstrap
+
+- name: Consul ACL | Save acl key
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.copy:
+    dest: "{{ role_path }}/files/consul/acl_bootstrap"
+    content: "{{ _consul_acl_bootstrap.stdout }}"
+  when: not _acl_bootstrap_stat.stat.exists
+
+- name: Consul ACL | Check acl SecretID
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.stat:
+    path: "{{ role_path }}/files/consul/acl_secretid"
+  register: _acl_secretid_stat
+
+- name: Consul ACL | Save acl SecretID
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.shell: >-
+    grep SecretID {{ role_path }}/files/consul/acl_bootstrap |
+    cut -c19- | tee {{ role_path }}/files/consul/acl_secretid
+  when: not _acl_secretid_stat.stat.exists
+
+- name: Consul Config | Get stored SecretID
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.slurp:
+    src: "{{ role_path }}/files/consul/acl_secretid"
+  register: _secretid_slurp
+
+- name: Consul ACL | Set SecretID fact
+  run_once: true
+  ansible.builtin.set_fact:
+    consul_secretid: "{{ _secretid_slurp['content'] | b64decode }}"
+
+- name: Consul ACL | Deploy policies |  mkdir
+  when: hashicorp_consul_server_index == 0
+  ansible.builtin.file:
+    dest: "{{ item[0] }}"
+    state: directory
+    mode: "{{ item[1] }}"
+    owner: consul
+    group: consul
+  loop:
+    - ["/etc/consul.d/policies", "0750"]
+
+- name: Consul ACL | Deploy policies | policy.hcl
+  when: hashicorp_consul_server_index == 0
+  ansible.builtin.template:
+    dest: /etc/consul.d/policies/node-policy.hcl
+    src: templates/policies/node-policy.hcl.j2
+    mode: "0640"
+    owner: consul
+    group: consul
+
+- name: Consul ACL | Deploy policies | check policy
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.stat:
+    path: "{{ role_path }}/files/consul/node-policy.result"
+  register: _acl_policy_stat
+
+- name: Consul ACL | Deploy policies | create policy
+  # Always run bootstrap on the same (first) server
+  when:
+    - hashicorp_consul_server_index == 0
+    - not _acl_policy_stat.stat.exists
+  ansible.builtin.command: >-
+    consul acl policy create
+    -token={{ consul_secretid }}
+    -name node-policy
+    -rules @/etc/consul.d/policies/node-policy.hcl
+  register: _consul_acl_policy
+
+- name: Consul ACL | Deploy policies | save policy
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.copy:
+    dest: "{{ role_path }}/files/consul/node-policy.result"
+    content: "{{ _consul_acl_policy.stdout }}"
+  when: not _acl_policy_stat.stat.exists
+
+- name: Consul ACL | Deploy policies | check policy_token
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.stat:
+    path: "{{ role_path }}/files/consul/node-policy_token.result"
+  register: _acl_policy_token_stat
+
+- name: Consul ACL | Deploy policies | create policy token
+  # Always run bootstrap on the same (first) server
+  when: hashicorp_consul_server_index == 0
+  ansible.builtin.command: >-
+    consul acl token create
+    -token={{ consul_secretid }}
+    -description "node token"
+    -policy-name node-policy
+  register: _consul_acl_policy_token
+
+- name: Consul ACL | Deploy policies | save policy_token
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.copy:
+    dest: "{{ role_path }}/files/consul/node-policy_token.result"
+    content: "{{ _consul_acl_policy_token.stdout }}"
+  when: not _acl_policy_token_stat.stat.exists
+
+- name: Consul ACL | Deploy policies |  Save node policy token
+  delegate_to: localhost
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.shell: >-
+    grep SecretID {{ role_path }}/files/consul/node-policy_token.result |
+    cut -c19- | tee {{ role_path }}/files/consul/node-policy_token
+  when: not _acl_policy_token_stat.stat.exists
+
+- name: Consul Config | Deploy policies | Get stored node policy token
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.slurp:
+    src: "{{ role_path }}/files/consul/node-policy_token"
+  register: _node_policy_token_slurp
+
+- name: Consul ACL | Deploy policies | Set consul_node_policy_token fact
+  run_once: true
+  ansible.builtin.set_fact:
+    consul_node_policy_token: "{{ _node_policy_token_slurp['content'] | b64decode }}"
+
+- name: Consul ACL | Deploy policies | Set policy token
+  ansible.builtin.command: >-
+    consul acl set-agent-token
+    -token={{ consul_secretid }}
+    agent "{{ consul_node_policy_token }}"

@@ -1,0 +1,5 @@
+To include/update the files here run:
+
+ARCH_CNI=amd64
+CNI_PLUGIN_VERSION=v1.6.2
+curl -L "https://github.com/containernetworking/plugins/releases/download/${CNI_PLUGIN_VERSION}/cni-plugins-linux-${ARCH_CNI}-${CNI_PLUGIN_VERSION}".tgz 2>/dev/null | tar xzf -

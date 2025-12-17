@@ -1,0 +1,11 @@
+---
+- name: Ensure podman agent is enabled and running
+  ansible.builtin.service:
+    name: "podman.service"
+    state: started
+    enabled: true
+- name: Enable registry
+  ansible.builtin.template:
+    src: templates/registries.conf.j2
+    dest: /etc/containers/registries.conf
+    mode: "0644"

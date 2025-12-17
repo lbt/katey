@@ -1,0 +1,6 @@
+---
+- name: Ensure consul agent is enabled and running
+  ansible.builtin.service:
+    name: "consul"
+    state: started
+    enabled: true

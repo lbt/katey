@@ -1,0 +1,28 @@
+---
+- name: Add Hashicorp repository key
+  # wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o templates/hashicorp.key
+  ansible.builtin.copy:
+    src: "{{ role_path }}/templates/hashicorp.key"
+    dest: /usr/share/keyrings/hashicorp-archive-keyring.gpg
+    mode: "0644"
+
+- name: Add hahicorp repository
+  vars:
+    hashicorp_repo_data: >
+      deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg]
+      https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main
+  ansible.builtin.apt_repository:
+    repo: "{{ hashicorp_repo_data }}"
+    state: present
+    filename: hasicorp
+    update_cache: true
+
+- name: Ensure correct packages installed
+  include_role:
+    name: packages
+    public: yes
+  vars:
+    packages_packages: >
+      {{ hashicorp_packages +
+      (podman_packages if hashicorp_nomad_podman|d(False) else [])
+      }}

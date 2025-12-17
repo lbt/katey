@@ -1,0 +1,82 @@
+---
+- name: Create nomad agent config
+  # nomad reads .hcl and .json files in this dir
+  ansible.builtin.template:
+    src: templates/nomad.agent.hcl.j2
+    dest: /etc/nomad.d/nomad.hcl
+    mode: "0644"
+  notify:
+    - Restart nomad
+
+- name: Create nomad client env
+  # This is for systemd to read.
+  ansible.builtin.template:
+    src: templates/nomad.agent.env.j2
+    dest: /etc/nomad.d/nomad.env
+    mode: "0644"
+  notify:
+    - Restart nomad
+
+- name: Create cni plugin dir
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/cni
+    - /opt/cni/bin
+    - /opt/cni/config
+
+- name: Install cni plugins
+  ansible.builtin.copy:
+    src: files/cni/
+    dest: /opt/cni/bin/
+    mode: preserve
+  notify:
+    - Restart nomad
+
+- name: Create nomad bridge cni config
+  ansible.builtin.template:
+    src: templates/cni_bridge.conflist.j2
+    dest: /opt/cni/config/bridge.conflist
+    mode: "0644"
+  vars:
+    bridge_name: nomad
+    subnet: "172.26.64.0/20"
+    adminchainname: "randomadminchainname"
+  notify:
+    - Restart nomad
+
+- name: Ensure modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+    persistent: present
+  loop:
+    - bridge
+    - br_netfilter
+
+- name: Configure modules persistent
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/bridge.conf
+    mode: "0644"
+    content: |
+      net.bridge.bridge-nf-call-arptables = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.bridge.bridge-nf-call-iptables = 1
+
+- name: Configure modules now
+  ansible.builtin.copy:
+    dest: "{{ item }}"
+    content: 1
+    unsafe_writes: true
+  loop:
+    - /proc/sys/net/bridge/bridge-nf-call-arptables
+    - /proc/sys/net/bridge/bridge-nf-call-ip6tables
+    - /proc/sys/net/bridge/bridge-nf-call-iptables
+
+- name: Ensure nomad agent is enabled and running
+  ansible.builtin.service:
+    name: "nomad"
+    state: started
+    enabled: true

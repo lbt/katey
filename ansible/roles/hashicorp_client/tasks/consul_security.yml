@@ -1,0 +1,99 @@
+---
+- name: get the username running the deploy
+  run_once: true
+  ansible.builtin.set_fact:
+      ca_username: "{{ lookup('env','USER') }}"
+
+- name: Consul Server Sec | Setup Consul files area in local ansible
+  delegate_to: "{{ consul_ca_host }}"
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0700"
+    state: directory
+  loop:
+    - "{{ role_path }}/files/consul"
+    - "{{ role_path }}/files/consul/ca"
+
+- name: Consul Server Sec | Check gossip key
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.stat:
+    path: "{{ role_path }}/files/consul/gossip_key"
+  register: _gossip_key_stat
+
+- name: Consul Server Sec | Generate gossip key
+  run_once: true
+  ansible.builtin.command:
+    cmd: /usr/bin/consul keygen
+  register: _consul_gossip_keygen
+  when: not _gossip_key_stat.stat.exists
+
+- name: Consul Server Sec | Save gossip key
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.copy:
+    dest: "{{ role_path }}/files/consul/gossip_key"
+    content: "{{ _consul_gossip_keygen.stdout }}"
+  when: not _gossip_key_stat.stat.exists
+
+
+# We could do all the CA work on the consul_ca_host
+# Then use slurp to pull pems and send them to the destination
+
+# https://developer.hashicorp.com/consul/docs/secure/encryption/tls/mtls
+- name: Consul Server Sec | Create CA
+  delegate_to: "{{ consul_ca_host }}"
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.command:
+    cmd: consul tls ca create -domain {{ consul_domain }}
+    chdir: "{{ role_path }}/files/consul/ca"
+    creates: consul-agent-ca.pem
+
+- name: Consul Server Sec | Create Server keys as user
+  delegate_to: "{{ consul_ca_host }}"
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  debug:
+    msg: "ca_username  is {{ ca_username }}"
+
+- name: Consul Server Sec | Create Server keys
+  delegate_to: "{{ consul_ca_host }}"
+  run_once: true
+  become: true
+  become_user: "{{ ca_username }}"
+  ansible.builtin.command:
+    cmd: consul tls cert create -server -dc={{ consul_dc_name }} -domain={{ consul_domain }}
+    chdir: "{{ role_path }}/files/consul/ca"
+    creates: "{{ consul_dc_name }}-server-{{ consul_domain }}-{{ item }}-key.pem"
+  loop: "{{ range(consul_server_count) | list}}"
+
+- name: Consul Server Sec | Create Server certs dir
+  ansible.builtin.file:
+    dest: "{{ item[0] }}"
+    state: directory
+    mode: "{{ item[1] }}"
+    owner: consul
+    group: consul
+  loop:
+    - ["/etc/consul.d/", "0755"]
+    - ["/etc/consul.d/certs", "0700"]
+  when: hashicorp_consul_server is defined
+
+- name: Consul Server Sec | Deploy Server Keys
+  ansible.builtin.copy:
+    dest: /etc/consul.d/certs/{{ item }}
+    src: files/consul/ca/{{ item }}
+    mode: "0600"
+    owner: consul
+    group: consul
+  when: hashicorp_consul_server is defined
+  loop:
+    - "consul-agent-ca.pem"
+    - "{{ consul_dc_name }}-server-{{ consul_domain }}-{{ hashicorp_consul_server_index }}.pem"
+    - "{{ consul_dc_name }}-server-{{ consul_domain }}-{{ hashicorp_consul_server_index }}-key.pem"

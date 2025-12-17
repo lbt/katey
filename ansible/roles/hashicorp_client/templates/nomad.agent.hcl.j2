@@ -1,0 +1,45 @@
+# docs: https://developer.hashicorp.com/nomad/docs/configuration
+
+data_dir  = "/opt/nomad/data"
+bind_addr = "0.0.0.0"
+
+# https://developer.hashicorp.com/nomad/docs/deploy/clusters/connect-nodes
+{% if hashicorp_nomad_server is defined %}
+server {
+  enabled          = true
+  bootstrap_expect = 3
+
+  # This is the IP address of the first server provisioned
+  server_join {
+    retry_join = ["ns0", "ns1", "ns2"]
+  }
+}
+{% endif %}
+
+{% if hashicorp_nomad_client is defined %}
+client {
+  enabled = true
+  {% raw %}
+  network_interface = "{{ GetDefaultInterfaces | attr \"name\" }}"
+  {% endraw %}
+  server_join {
+    retry_join = ["ns0", "ns1", "ns2"]
+  }
+  {% if common_everything is defined %}
+  host_volume "efs" {
+    path      = "/everything/devel/boa/efs"
+    read_only = true
+  }
+  meta = {
+    "has.everything" = "True"
+  }
+  {% endif %}
+}
+{% endif %}
+
+{% if hashicorp_nomad_podman is defined %}
+plugin "nomad-driver-podman" {
+  config {
+  }
+}
+{% endif %}

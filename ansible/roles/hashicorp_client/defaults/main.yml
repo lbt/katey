@@ -1,0 +1,9 @@
+---
+podman_packages: # These additional packages enable podman in a client
+  - podman
+  - nomad-driver-podman
+# Consul
+consul_ca_host: localhost
+consul_dc_name: lbt_dc1
+consul_domain: consul
+consul_server_count: 3
