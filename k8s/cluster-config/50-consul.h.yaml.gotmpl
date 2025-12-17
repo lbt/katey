@@ -1,0 +1,25 @@
+# Installs Consul
+#
+# Depends on infra.h.yaml
+repositories:
+  - name: hashicorp-server
+    url: https://helm.releases.hashicorp.com
+
+releases:
+  # - name: "consul-secrets"
+  #   chart: "kubernetes-incubator/raw"
+  #   namespace: "consul"
+  #   version: "1.22.x"
+  #   installed: {{ and (.Values | getOrNil "consul.installed" | default false) (.Values | getOrNil "consul.crypto" | default true) }}
+  #   values:
+  #     - "secrets.yaml.gotmpl"
+
+  - name: "consul"
+    chart: "hashicorp/consul"
+    version: "1.9.0"
+    namespace: "consul"
+    values:
+      - "./values/consul.yaml.gotmpl"
+    set:
+      - name: podAnnotations.checksum/config
+        value: {{ readFile "./values/consul.yaml.gotmpl" | sha256sum }}
